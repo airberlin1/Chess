@@ -8,14 +8,21 @@ UP = 1
 DOWN = 2
 LEFT = 3
 RIGHT = 4
+REGULAR_PAWN_MOVE = 1
+TWO_FORWARD = 2
+
 
 class Piece:
     def __init__(self, start_pos, white):
         self.pos = list(start_pos)
         self.color = WHITE if white else BLACK
+        self.has_moved = False
+        # this could possibly lead to problems when promoting in some chess variants,
+        # however it won't in regular chess
 
     def move(self, new_pos):
         self.pos = list(new_pos)
+        self.has_moved = True
 
     def eliminateInvalidMoves(self, moves):
         moves = [move for move in moves if (0 <= move[0] <= 7 and 0 <= move[1] <= 7)]
@@ -82,11 +89,53 @@ class Piece:
 
 
 class Pawn(Piece):
+    def __init__(self, start_pos, white):
+        super().__init__(start_pos, white)
+        self.last_move = REGULAR_PAWN_MOVE
+
+    def move(self, new_pos):
+        if new_pos[1] - self.pos[1] == 2 or new_pos[1] - self.pos[1] == -2:
+            self.last_move = TWO_FORWARD
+        else:
+            self.last_move = REGULAR_PAWN_MOVE
+        super().move(new_pos)
+
     def __repr__(self):
         return f"Pawn at ({self.pos[0]}, {self.pos[1]})"
 
     def getPossibleMoves(self):
-        pass
+        moves = []
+
+        if self.color == WHITE:
+            y_change = 1
+        elif self.color == BLACK:
+            y_change = -1
+        else:
+            print("wtf are you even doing to your colors in Pawn.getPossibleMoves")
+            return 1
+
+        # going forward
+        if board.board[self.pos[0] + y_change][self.pos[1]] is None:
+            moves.append([self.pos[0] + y_change, self.pos[1]])
+            if not self.has_moved:  # is allowed to move twice when on the starting row
+                if board.board[self.pos[0] + (2 * y_change)][self.pos[1]] is None:
+                    moves.append([self.pos[0] + (2 * y_change), self.pos[1]])
+
+        # taking something
+        for i in (-1, 1):
+            if board.board[self.pos[0] + y_change][self.pos[1] + i] is not None:
+                if board.board[self.pos[0] + y_change][self.pos[1] + i].color != self.color:
+                    moves.append([self.pos[0] + y_change, self.pos[1] + i])
+
+        # en passant
+        for i in (-1, 1):
+            if board.board[self.pos[0]][self.pos[1] + i] is not None:
+                if type(board.board[self.pos[0]][self.pos[1] + i]) == type(self):
+                    if board.board[self.pos[0]][self.pos[1] + i].last_move == TWO_FORWARD:
+                        moves.append([self.pos[0] + y_change, self.pos[1] + i])
+
+        # promotion is not treated as a special move here, but instead handled in the movePiece function
+        return self.eliminateInvalidMoves(moves)
 
 
 class Rook(Piece):
@@ -133,6 +182,26 @@ class King(Piece):
 
     def getPossibleMoves(self):
         moves = [[self.pos[i] + move[i] for i in range(2)] for move in KING_MOVES]
+
+        # castling
+        if not self.has_moved:
+            if type(board.board[self.pos[0]][0]) == type(Rook):
+                if not board.board[self.pos[0]][0].has_moved:
+                    count = 0
+                    for i in range(1, self.pos[1]):
+                        if board.board[self.pos[0]][i] is None:
+                            count += 1
+                    if count == self.pos[1] - 1:
+                        moves.append([self.pos[0], self.pos[1] - 2])
+            if type(board.board[self.pos[0]][CHESS_BOARD_SIZE - 1]) == type(Rook):
+                if not board.board[self.pos[0]][CHESS_BOARD_SIZE - 1].has_moved:
+                    count = 0
+                    for i in range(self.pos[1] + 1, CHESS_BOARD_SIZE - 1):
+                        if board.board[self.pos[0]][i] is None:
+                            count += 1
+                    if count == CHESS_BOARD_SIZE - 1 - self.pos[1] - 1:
+                        moves.append([self.pos[0], self.pos[1] - 2])
+
         return self.eliminateInvalidMoves(moves)
 
 
@@ -164,6 +233,9 @@ board = Board()
 
 
 def movePiece(prev_pos, new_pos):
+    # TODO castling
+    # TODO en passant
+    # TODO promotion
     if board.board[prev_pos[0]][prev_pos[1]] is None:
         return 1
     piece = board.board[prev_pos[0]][prev_pos[1]]
