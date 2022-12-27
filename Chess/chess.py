@@ -1,13 +1,14 @@
-from colors import *
+from colors import WHITE, BLACK
+KNIGHT_MOVES = ((-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1))
 
 
 class Piece:
     def __init__(self, start_pos, white):
-        self.pos = start_pos
+        self.pos = list(start_pos)
         self.color = WHITE if white else BLACK
 
     def move(self, new_pos):
-        self.pos = new_pos
+        self.pos = list(new_pos)
 
 
 class Pawn(Piece):
@@ -26,6 +27,12 @@ class Rook(Piece):
 class Knight(Piece):
     def __repr__(self):
         return f"Knight at ({self.pos[0]}, {self.pos[1]})"
+
+    def getPossibleMoves(self):
+        # TODO eliminate invalid moves due to check
+        moves = [[self.pos[i] + move[i] for i in range(2)] for move in KNIGHT_MOVES]
+        moves = [move for move in moves if (0 <= move[0] <= 7 and 0 <= move[1] <= 7)]
+        return moves
 
 
 class Bishop(Piece):
@@ -74,6 +81,8 @@ def movePiece(prev_pos, new_pos):
     if board.board[prev_pos[0]][prev_pos[1]] is None:
         return 1
     piece = board.board[prev_pos[0]][prev_pos[1]]
+    if list(new_pos) not in piece.getPossibleMoves():
+        return 2
     board.board[prev_pos[0]][prev_pos[1]] = None
     if board.board[new_pos[0]][new_pos[1]] is not None:
         board.captured.append(board.board[new_pos[0]][new_pos[1]])
@@ -93,3 +102,4 @@ def resetBoard():
 
 if __name__ == '__main__':
     printBoard()
+    print(board.board[0][1].getPossibleMoves())
