@@ -49,12 +49,11 @@ class Piece:
                         break
                 moves.append([i, self.pos[1]])
 
-        elif direction == HORIZONTAL:
+        elif direction[0] == HORIZONTAL:
             if direction[1] == LEFT:
                 num_range = range(self.pos[1] - 1, -1, -1)
             elif direction[1] == RIGHT:
                 num_range = range(self.pos[1] + 1, CHESS_BOARD_SIZE)
-
             for i in num_range:
                 if board.board[self.pos[0]][i] is not None:
                     piece = board.board[self.pos[0]][i]
@@ -77,6 +76,26 @@ class Piece:
 
     def getMovesDiagonal(self, direction):
         moves = []
+        if direction == (UP, RIGHT):
+            change = (1, 1)
+        elif direction == (UP, LEFT):
+            change = (1, -1)
+        elif direction == (DOWN, LEFT):
+            change = (-1, -1)
+        elif direction == (DOWN, RIGHT):
+            change = (-1, 1)
+        else:
+            change = (CHESS_BOARD_SIZE, CHESS_BOARD_SIZE)
+        for i in range(1, CHESS_BOARD_SIZE):
+            if not 0 <= self.pos[0] + i * change[0] < CHESS_BOARD_SIZE or not 0 <= self.pos[1] + i * change[1] < CHESS_BOARD_SIZE:
+                break
+            if board.board[self.pos[0] + i * change[0]][self.pos[1] + i * change[1]] is not None:
+                if board.board[self.pos[0] + i * change[0]][self.pos[1] + i * change[1]].color == self.color:
+                    break
+                else:
+                    moves.append([self.pos[0] + i * change[0], self.pos[1] + i * change[1]])
+                    break
+            moves.append([self.pos[0] + i * change[0], self.pos[1] + i * change[1]])
         return moves
 
     def getAllMovesDiagonal(self):
@@ -239,8 +258,8 @@ def movePiece(prev_pos, new_pos):
     if board.board[prev_pos[0]][prev_pos[1]] is None:
         return 1
     piece = board.board[prev_pos[0]][prev_pos[1]]
-    if list(new_pos) not in piece.getPossibleMoves():
-        return 2
+    #if list(new_pos) not in piece.getPossibleMoves():
+        #return 2
     board.board[prev_pos[0]][prev_pos[1]] = None
     if board.board[new_pos[0]][new_pos[1]] is not None:
         board.captured.append(board.board[new_pos[0]][new_pos[1]])
@@ -261,3 +280,6 @@ def resetBoard():
 if __name__ == '__main__':
     printBoard()
     print(board.board[0][1].getPossibleMoves())
+    movePiece([0, 3], [4, 4])
+    printBoard()
+    print(board.board[4][4].getPossibleMoves())
