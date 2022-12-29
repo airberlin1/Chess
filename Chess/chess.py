@@ -1,3 +1,4 @@
+from copy import deepcopy
 from colors import WHITE, BLACK
 KNIGHT_MOVES = ((-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1))
 KING_MOVES = ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1))
@@ -23,11 +24,6 @@ class Piece:
     def move(self, new_pos):
         self.pos = list(new_pos)
         self.has_moved = True
-
-    def eliminateInvalidMoves(self, moves):
-        moves = [move for move in moves if (0 <= move[0] <= 7 and 0 <= move[1] <= 7)]
-        # TODO eliminate invalid moves due to check
-        return moves
 
     def getMovesStraight(self, direction):
         moves = []
@@ -122,7 +118,8 @@ class Pawn(Piece):
     def __repr__(self):
         return f"Pawn at ({self.pos[0]}, {self.pos[1]})"
 
-    def getPossibleMoves(self):
+    # noinspection PyUnresolvedReferences
+    def getPossibleMoves(self, check_valid):
         moves = []
 
         if self.color == WHITE:
@@ -154,45 +151,45 @@ class Pawn(Piece):
                         moves.append([self.pos[0] + y_change, self.pos[1] + i])
 
         # promotion is not treated as a special move here, but instead handled in the movePiece function
-        return self.eliminateInvalidMoves(moves)
+        return eliminateInvalidMoves(self.pos, moves, check_valid)
 
 
 class Rook(Piece):
     def __repr__(self):
         return f"Rook at ({self.pos[0]}, {self.pos[1]})"
     
-    def getPossibleMoves(self):
+    def getPossibleMoves(self, check_valid):
         moves = self.getAllMovesStraight()
-        return self.eliminateInvalidMoves(moves)
+        return eliminateInvalidMoves(self.pos, moves, check_valid)
 
 
 class Knight(Piece):
     def __repr__(self):
         return f"Knight at ({self.pos[0]}, {self.pos[1]})"
 
-    def getPossibleMoves(self):
+    def getPossibleMoves(self, check_valid):
         moves = [[self.pos[i] + move[i] for i in range(2)] for move in KNIGHT_MOVES]
-        return self.eliminateInvalidMoves(moves)
+        return eliminateInvalidMoves(self.pos, moves, check_valid)
 
 
 class Bishop(Piece):
     def __repr__(self):
         return f"Bishop at ({self.pos[0]}, {self.pos[1]})"
 
-    def getPossibleMoves(self):
+    def getPossibleMoves(self, check_valid):
         moves = self.getAllMovesDiagonal()
-        return self.eliminateInvalidMoves(moves)
+        return eliminateInvalidMoves(self.pos, moves, check_valid)
 
 
 class Queen(Piece):
     def __repr__(self):
         return f"Queen at ({self.pos[0]}, {self.pos[1]})"
 
-    def getPossibleMoves(self):
+    def getPossibleMoves(self, check_valid):
         straight_moves = self.getAllMovesStraight()
         diagonal_moves = self.getAllMovesDiagonal()
         moves = diagonal_moves + straight_moves
-        return self.eliminateInvalidMoves(moves)
+        return eliminateInvalidMoves(self.pos, moves, check_valid)
 
 
 class King(Piece):
@@ -221,7 +218,7 @@ class King(Piece):
                     if count == CHESS_BOARD_SIZE - 1 - self.pos[1] - 1:
                         moves.append([self.pos[0], self.pos[1] - 2])
 
-        return self.eliminateInvalidMoves(moves)
+        return eliminateInvalidMoves(self.pos, moves)
 
 
 class Board:
@@ -248,22 +245,53 @@ class Board:
         ]
 
 
+def inCheck(board_to_be_checked):
+
+    pos = [[0, 0], [0, 0]]
+    pos_ind = 0
+
+    for row in board_to_be_checked:
+        for piece in row:
+            if type(piece) == type(King):
+                pos[pos_ind] = piece.pos
+                pos_ind += 1
+
+    for row in board_to_be_checked:
+        for piece in row:
+            if piece is not None:
+                if piece.pos in pos:
+                    return True
+
+    return False
+
+
 board = Board()
 
 
-def movePiece(prev_pos, new_pos):
+def eliminateInvalidMoves(pos, moves, check_valid):
+    moves = [move for move in moves if (0 <= move[0] <= 7 and 0 <= move[1] <= 7)]
+    if check_valid:
+        return moves
+    valid_moves = []
+    for move in moves:
+        pass
+    # TODO eliminate invalid moves due to check
+    return valid_moves
+
+
+def movePiece(prev_pos, new_pos, check_valid=False, changed_board=board):
     # TODO castling
     # TODO en passant
     # TODO promotion
-    if board.board[prev_pos[0]][prev_pos[1]] is None:
+    if changed_board.board[prev_pos[0]][prev_pos[1]] is None:
         return 1
-    piece = board.board[prev_pos[0]][prev_pos[1]]
-    #if list(new_pos) not in piece.getPossibleMoves():
-        #return 2
-    board.board[prev_pos[0]][prev_pos[1]] = None
-    if board.board[new_pos[0]][new_pos[1]] is not None:
-        board.captured.append(board.board[new_pos[0]][new_pos[1]])
-    board.board[new_pos[0]][new_pos[1]] = piece
+    piece = changed_board.board[prev_pos[0]][prev_pos[1]]
+    if list(new_pos) not in piece.getPossibleMoves(check_valid):
+        return 2
+    changed_board.board[prev_pos[0]][prev_pos[1]] = None
+    if changed_board.board[new_pos[0]][new_pos[1]] is not None:
+        changed_board.captured.append(changed_board.board[new_pos[0]][new_pos[1]])
+    changed_board.board[new_pos[0]][new_pos[1]] = piece
     piece.move(new_pos)
 
 
@@ -278,8 +306,4 @@ def resetBoard():
 
 
 if __name__ == '__main__':
-    printBoard()
-    print(board.board[0][1].getPossibleMoves())
-    movePiece([0, 3], [4, 4])
-    printBoard()
-    print(board.board[4][4].getPossibleMoves())
+    pass
