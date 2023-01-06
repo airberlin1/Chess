@@ -18,6 +18,7 @@ class Piece:
         self.pos = list(start_pos)
         self.color = WHITE if white else BLACK
         self.has_moved = False
+        self.moves = self.getPossibleMoves()
         # this could possibly lead to problems when promoting in some chess variants,
         # however it won't in regular chess
 
@@ -108,6 +109,12 @@ class Pawn(Piece):
         super().__init__(start_pos, white)
         self.last_move = REGULAR_PAWN_MOVE
 
+    def __repr__(self):
+        return f"Pawn at ({self.pos[0]}, {self.pos[1]})"
+
+    def __str__(self):
+        return "P"
+
     def move(self, new_pos):
         if new_pos[1] - self.pos[1] == 2 or new_pos[1] - self.pos[1] == -2:
             self.last_move = TWO_FORWARD
@@ -115,11 +122,8 @@ class Pawn(Piece):
             self.last_move = REGULAR_PAWN_MOVE
         super().move(new_pos)
 
-    def __repr__(self):
-        return f"Pawn at ({self.pos[0]}, {self.pos[1]})"
-
     # noinspection PyUnresolvedReferences
-    def getPossibleMoves(self, check_valid):
+    def getPossibleMoves(self, check_valid=False):
         moves = []
 
         if self.color == WHITE:
@@ -157,8 +161,11 @@ class Pawn(Piece):
 class Rook(Piece):
     def __repr__(self):
         return f"Rook at ({self.pos[0]}, {self.pos[1]})"
+
+    def __str__(self):
+        return "R"
     
-    def getPossibleMoves(self, check_valid):
+    def getPossibleMoves(self, check_valid=False):
         moves = self.getAllMovesStraight()
         return eliminateInvalidMoves(self.pos, moves, check_valid)
 
@@ -167,7 +174,10 @@ class Knight(Piece):
     def __repr__(self):
         return f"Knight at ({self.pos[0]}, {self.pos[1]})"
 
-    def getPossibleMoves(self, check_valid):
+    def __str__(self):
+        return "N"
+
+    def getPossibleMoves(self, check_valid=False):
         moves = [[self.pos[i] + move[i] for i in range(2)] for move in KNIGHT_MOVES]
         return eliminateInvalidMoves(self.pos, moves, check_valid)
 
@@ -176,7 +186,10 @@ class Bishop(Piece):
     def __repr__(self):
         return f"Bishop at ({self.pos[0]}, {self.pos[1]})"
 
-    def getPossibleMoves(self, check_valid):
+    def __str__(self):
+        return "B"
+
+    def getPossibleMoves(self, check_valid=False):
         moves = self.getAllMovesDiagonal()
         return eliminateInvalidMoves(self.pos, moves, check_valid)
 
@@ -185,7 +198,10 @@ class Queen(Piece):
     def __repr__(self):
         return f"Queen at ({self.pos[0]}, {self.pos[1]})"
 
-    def getPossibleMoves(self, check_valid):
+    def __str__(self):
+        return "Q"
+
+    def getPossibleMoves(self, check_valid=False):
         straight_moves = self.getAllMovesStraight()
         diagonal_moves = self.getAllMovesDiagonal()
         moves = diagonal_moves + straight_moves
@@ -196,7 +212,10 @@ class King(Piece):
     def __repr__(self):
         return f"King at ({self.pos[0]}, {self.pos[1]})"
 
-    def getPossibleMoves(self):
+    def __str__(self):
+        return "K"
+
+    def getPossibleMoves(self, check_valid=False):
         moves = [[self.pos[i] + move[i] for i in range(2)] for move in KING_MOVES]
 
         # castling
@@ -218,7 +237,7 @@ class King(Piece):
                     if count == CHESS_BOARD_SIZE - 1 - self.pos[1] - 1:
                         moves.append([self.pos[0], self.pos[1] - 2])
 
-        return eliminateInvalidMoves(self.pos, moves)
+        return eliminateInvalidMoves(self.pos, moves, check_valid)
 
 
 class Board:
@@ -250,17 +269,18 @@ def inCheck(board_to_be_checked):
     pos = [[0, 0], [0, 0]]
     pos_ind = 0
 
-    for row in board_to_be_checked:
+    for row in board_to_be_checked.board:
         for piece in row:
             if type(piece) == type(King):
                 pos[pos_ind] = piece.pos
                 pos_ind += 1
 
-    for row in board_to_be_checked:
+    for row in board_to_be_checked.board:
         for piece in row:
             if piece is not None:
-                if piece.pos in pos:
-                    return True
+                for p in pos:
+                    if p in piece.moves:
+                        return True
 
     return False
 
@@ -268,7 +288,7 @@ def inCheck(board_to_be_checked):
 board = Board()
 
 
-def eliminateInvalidMoves(pos, moves, check_valid):
+def eliminateInvalidMoves(pos, moves, check_valid=False):
     moves = [move for move in moves if (0 <= move[0] <= 7 and 0 <= move[1] <= 7)]
     if check_valid:
         return moves
@@ -279,6 +299,13 @@ def eliminateInvalidMoves(pos, moves, check_valid):
     return valid_moves
 
 
+def refresh_moves(changed_board, check_valid):
+    for row in changed_board.board:
+        for piece in row:
+            if piece is not None:
+                piece.moves = piece.getPossibleMoves(check_valid)
+
+
 def movePiece(prev_pos, new_pos, check_valid=False, changed_board=board):
     # TODO castling
     # TODO en passant
@@ -286,18 +313,20 @@ def movePiece(prev_pos, new_pos, check_valid=False, changed_board=board):
     if changed_board.board[prev_pos[0]][prev_pos[1]] is None:
         return 1
     piece = changed_board.board[prev_pos[0]][prev_pos[1]]
-    if list(new_pos) not in piece.getPossibleMoves(check_valid):
+    if list(new_pos) not in piece.moves:
         return 2
     changed_board.board[prev_pos[0]][prev_pos[1]] = None
     if changed_board.board[new_pos[0]][new_pos[1]] is not None:
         changed_board.captured.append(changed_board.board[new_pos[0]][new_pos[1]])
     changed_board.board[new_pos[0]][new_pos[1]] = piece
+    refresh_moves(changed_board, check_valid)
     piece.move(new_pos)
 
 
 def printBoard():
     for b in board.board:
         print(b)
+    print("\n")
 
 
 def resetBoard():
